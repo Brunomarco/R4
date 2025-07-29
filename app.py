@@ -163,75 +163,27 @@ def load_tms_data(uploaded_file):
     # Destinations (columns): AT, AU, BE, DE, DK, ES, FR, GB, IT, N1, NL, NZ, SE, US
     data['lanes'] = lane_df
    
-   # 5. Cost Sales - FIXED to properly process only BILLED orders (excluding row 128)
+   # 5. Cost Sales - Fixed to properly process financial data
    if "cost sales" in excel_sheets:
     cost_df = excel_sheets["cost sales"].copy()
+    expected_cols = ['Order_Date', 'Account', 'Account_Name', 'Office', 'Order_Num', 
+                    'PU_Cost', 'Ship_Cost', 'Man_Cost', 'Del_Cost', 'Total_Cost',
+                    'Net_Revenue', 'Currency', 'Diff', 'Gross_Percent', 'Invoice_Num',
+                    'Total_Amount', 'Status', 'PU_Country']
     
-    # First, let's check the structure of the data
-    print(f"Cost sales shape: {cost_df.shape}")
-    print(f"First few columns: {cost_df.columns[:5].tolist()}")
+    new_cols = expected_cols[:len(cost_df.columns)]
+    cost_df.columns = new_cols
     
-    # Map columns based on position (Excel columns K, M, N for Net_Revenue, Diff, Gross_Percent)
-    if len(cost_df.columns) >= 18:  # Ensure we have enough columns
-     # Assuming standard Excel layout where:
-     # Column K (index 10) = Net_Revenue
-     # Column M (index 12) = Diff
-     # Column N (index 13) = Gross_Percent
-     # Column Q (index 16) = Status
-     
-     # Rename columns by position
-     cost_df.columns = ['Col' + str(i) for i in range(len(cost_df.columns))]
-     
-     # Map specific columns we need
-     column_mapping = {
-      'Col0': 'Order_Date',
-      'Col1': 'Account', 
-      'Col2': 'Account_Name',
-      'Col3': 'Office',
-      'Col4': 'Order_Num',
-      'Col5': 'PU_Cost',
-      'Col6': 'Ship_Cost', 
-      'Col7': 'Man_Cost',
-      'Col8': 'Del_Cost',
-      'Col9': 'Total_Cost',
-      'Col10': 'Net_Revenue',  # Column K
-      'Col11': 'Currency',
-      'Col12': 'Diff',          # Column M
-      'Col13': 'Gross_Percent', # Column N
-      'Col14': 'Invoice_Num',
-      'Col15': 'Total_Amount',
-      'Col16': 'Status',        # Column Q
-      'Col17': 'PU_Country'
-     }
-     
-     # Rename only columns that exist
-     for old_name, new_name in column_mapping.items():
-      if old_name in cost_df.columns:
-       cost_df.rename(columns={old_name: new_name}, inplace=True)
-    
-    # Convert date column
     if 'Order_Date' in cost_df.columns:
      cost_df['Order_Date'] = safe_date_conversion(cost_df['Order_Date'])
     
-    # Remove the last row if it contains SUBTOTAL (row 128 in Excel = index 125 in DataFrame)
-    # Excel data starts from row 3, so row 128 = index 125
-    if len(cost_df) >= 125:
-     # Check if the last rows contain formula results (they might have different characteristics)
-     cost_df = cost_df.iloc[:125]  # Exclude row 128 (SUBTOTAL row)
+    # Clean financial data - remove rows with missing financial values
+    if 'Net_Revenue' in cost_df.columns and 'Total_Cost' in cost_df.columns:
+     cost_df = cost_df.dropna(subset=['Net_Revenue', 'Total_Cost'])
+     # Only keep rows with actual financial activity
+     cost_df = cost_df[(cost_df['Net_Revenue'] != 0) | (cost_df['Total_Cost'] != 0)]
     
-    # Store all data first
-    data['cost_sales_all'] = cost_df.copy()
-    
-    # Filter for BILLED status only for financial calculations
-    if 'Status' in cost_df.columns:
-     billed_df = cost_df[cost_df['Status'] == 'BILLED'].copy()
-     print(f"Number of BILLED orders: {len(billed_df)}")
-    else:
-     billed_df = cost_df.copy()
-     print("No Status column found, using all data")
-    
-    # Store the filtered BILLED data
-    data['cost_sales'] = billed_df
+    data['cost_sales'] = cost_df
    
    return data
    
@@ -256,8 +208,8 @@ avg_otp = 0
 total_orders = 0
 total_revenue = 0
 total_cost = 0
-total_diff = 0
 profit_margin = 0
+diff_total = 0
 total_services = 0
 
 if tms_data is not None:
@@ -273,50 +225,22 @@ if tms_data is not None:
    on_time_orders = len(status_series[status_series == 'ON TIME'])
    avg_otp = (on_time_orders / total_orders * 100) if total_orders > 0 else 0
  
- # Financial metrics - FIXED to use only BILLED orders
- if 'cost_sales' in tms_data and not tms_data['cost_sales'].empty:
-  cost_df = tms_data['cost_sales']
-  
-  # Debug: Check what columns we have
-  print(f"Available columns in cost_df: {cost_df.columns.tolist()}")
-  print(f"Number of rows in cost_df: {len(cost_df)}")
-  
-  # Calculate the actual totals from BILLED orders only
-  if 'Net_Revenue' in cost_df.columns:
-   # Convert to numeric, handling any non-numeric values
-   cost_df['Net_Revenue'] = pd.to_numeric(cost_df['Net_Revenue'], errors='coerce').fillna(0)
-   total_revenue = cost_df['Net_Revenue'].sum()
-   print(f"Total Revenue calculated: {total_revenue}")
-  else:
-   print("Net_Revenue column not found!")
-  
-  if 'Total_Cost' in cost_df.columns:
-   cost_df['Total_Cost'] = pd.to_numeric(cost_df['Total_Cost'], errors='coerce').fillna(0)
-   total_cost = cost_df['Total_Cost'].sum()
-  else:
-   # Calculate total cost from individual components
-   cost_cols = ['PU_Cost', 'Ship_Cost', 'Man_Cost', 'Del_Cost']
-   total_cost = 0
-   for col in cost_cols:
-    if col in cost_df.columns:
-     cost_df[col] = pd.to_numeric(cost_df[col], errors='coerce').fillna(0)
-     total_cost += cost_df[col].sum()
-   print(f"Total Cost calculated from components: {total_cost}")
-  
-  if 'Diff' in cost_df.columns:
-   cost_df['Diff'] = pd.to_numeric(cost_df['Diff'], errors='coerce').fillna(0)
-   total_diff = cost_df['Diff'].sum()
-   # Calculate profit margin as diff/revenue (matching Excel SUBTOTAL formula)
-   profit_margin = (total_diff / total_revenue * 100) if total_revenue > 0 else 0
-   print(f"Total Diff: {total_diff}, Profit Margin: {profit_margin}")
-  else:
-   total_diff = total_revenue - total_cost
-   profit_margin = (total_diff / total_revenue * 100) if total_revenue > 0 else 0
-   print("Diff column not found, calculating from revenue - cost")
-  
-  # Ensure Gross_Percent is numeric if it exists
-  if 'Gross_Percent' in cost_df.columns:
-   cost_df['Gross_Percent'] = pd.to_numeric(cost_df['Gross_Percent'], errors='coerce').fillna(0)
+# Financial metrics - use only billed orders and ignore summary rows
+if tms_data and 'cost_sales' in tms_data and not tms_data['cost_sales'].empty:
+ cost_df = tms_data['cost_sales']
+ # work only with billed orders
+ if 'Status' in cost_df.columns:
+  cost_df = cost_df[cost_df['Status'].str.contains('bill', case=False, na=False)]
+ if 'Order_Num' in cost_df.columns:
+  cost_df = cost_df[cost_df['Order_Num'].notna()]
+
+ if 'Net_Revenue' in cost_df.columns:
+  total_revenue = cost_df['Net_Revenue'].sum()
+ if 'Total_Cost' in cost_df.columns:
+  total_cost = cost_df['Total_Cost'].sum()
+
+ diff_total = cost_df['Diff'].sum() if 'Diff' in cost_df.columns else total_revenue - total_cost
+ profit_margin = (diff_total / total_revenue * 100) if total_revenue > 0 else 0
 
 # Create tabs for each sheet
 if tms_data is not None:
@@ -663,16 +587,6 @@ if tms_data is not None:
   if 'cost_sales' in tms_data and not tms_data['cost_sales'].empty:
    cost_df = tms_data['cost_sales']
    
-   # Debug section - can be removed once working
-   with st.expander("Debug Information"):
-    st.write(f"Total rows in cost_sales: {len(cost_df)}")
-    st.write(f"Columns available: {cost_df.columns.tolist()}")
-    if 'Status' in cost_df.columns:
-     st.write(f"Status values: {cost_df['Status'].value_counts().to_dict()}")
-    if 'Net_Revenue' in cost_df.columns:
-     st.write(f"Sample Net_Revenue values: {cost_df['Net_Revenue'].head()}")
-     st.write(f"Net_Revenue sum: {cost_df['Net_Revenue'].sum()}")
-   
    # Financial Overview with spacing
    st.markdown('<p class="chart-title">Overall Financial Health</p>', unsafe_allow_html=True)
    
@@ -682,12 +596,7 @@ if tms_data is not None:
     st.markdown("**Revenue vs Cost Analysis**")
     st.markdown("<small>Shows total income, expenses, and resulting profit</small>", unsafe_allow_html=True)
     
-    # Use total_diff as profit if available, otherwise calculate
-    if 'total_diff' in locals() and total_diff is not None:
-     profit = total_diff
-    else:
-     profit = total_revenue - total_cost
-    
+    profit = diff_total
     financial_data = pd.DataFrame({
      'Category': ['Revenue', 'Cost', 'Profit'],
      'Amount': [total_revenue, total_cost, profit]
@@ -736,65 +645,114 @@ if tms_data is not None:
      st.write(f"**Biggest expense**: {largest_cost} ({cost_components[largest_cost]/total_costs*100:.1f}%)")
    
    with col3:
-    st.markdown("**Financial KPIs**")
-    st.markdown("<small>Key financial metrics</small>", unsafe_allow_html=True)
+    st.markdown("**Profit Margin Distribution**")
+    st.markdown("<small>How profitable are individual shipments?</small>", unsafe_allow_html=True)
     
-    # Display key financial KPIs - matching Excel SUBTOTAL results
-    kpi_data = pd.DataFrame({
-     'Metric': ['NET Total', 'DIFF Total', 'Gross Margin %', 'Orders Billed'],
-     'Value': [
-      f"€{total_revenue:,.2f}",
-      f"€{total_diff:,.2f}",
-      f"{profit_margin:.2f}%",
-      f"{len(cost_df):,}"
-     ]
-    })
-    st.dataframe(kpi_data, hide_index=True, use_container_width=True)
-    
-    # Show expected vs actual for verification
-    st.markdown("**Target Values:**")
-    st.markdown(f"<small>NET: €197,312.32<br>DIFF: €20,112.72<br>Gross: 10.19%</small>", unsafe_allow_html=True)
-   
-   # Add spacing and new row for Profit Margin Distribution
-   st.markdown("<br>", unsafe_allow_html=True)
-   
-   # Profit Margin Distribution - Separate plot as requested
-   st.markdown('<p class="chart-title">Profit Margin Distribution Analysis</p>', unsafe_allow_html=True)
-   
-   if 'Gross_Percent' in cost_df.columns:
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
+    if 'Gross_Percent' in cost_df.columns:
      margin_data = cost_df['Gross_Percent'].dropna() * 100
      
      # Calculate margin statistics
      profitable_orders = len(margin_data[margin_data > 0])
      high_margin_orders = len(margin_data[margin_data >= 20])
      
-     fig = px.histogram(margin_data, nbins=30,
-                       title='Distribution of Order Profit Margins',
-                       labels={'value': 'Margin %', 'count': 'Number of Orders'})
-     fig.add_vline(x=20, line_dash="dash", line_color="green", 
-                  annotation_text="Target 20%")
-     fig.add_vline(x=profit_margin, line_dash="dash", line_color="red", 
-                  annotation_text=f"Avg {profit_margin:.1f}%")
+     fig = px.histogram(
+      margin_data,
+      nbins=30,
+      title='',
+      labels={'value': 'Margin %', 'count': 'Number of Orders'}
+     )
+     fig.add_vline(x=20, line_dash="dash", line_color="green", annotation_text="Target 20%")
      fig.update_traces(marker_color='lightcoral')
-     fig.update_layout(height=400)
+     fig.update_layout(height=350)
      st.plotly_chart(fig, use_container_width=True)
+
+     # Additional view of margin distribution
+     box_fig = px.box(margin_data, orientation='h', labels={'value': 'Margin %'})
+     box_fig.update_layout(height=200, showlegend=False, title='')
+     st.plotly_chart(box_fig, use_container_width=True)
     
-    with col2:
-     st.markdown("**Margin Analysis Summary**")
-     margin_stats = pd.DataFrame({
-      'Statistic': ['Profitable Orders', 'High Margin (>20%)', 'Negative Margin', 'Average Margin', 'Median Margin'],
-      'Value': [
-       f"{profitable_orders/len(margin_data)*100:.1f}%",
-       f"{high_margin_orders/len(margin_data)*100:.1f}%",
-       f"{len(margin_data[margin_data < 0])/len(margin_data)*100:.1f}%",
-       f"{margin_data.mean():.1f}%",
-       f"{margin_data.median():.1f}%"
-      ]
-     })
-     st.dataframe(margin_stats, hide_index=True, use_container_width=True)
+     # Margin insights
+     st.write(f"**Profitable orders**: {profitable_orders/len(margin_data)*100:.1f}%")
+     st.write(f"**High margin (>20%)**: {high_margin_orders/len(margin_data)*100:.1f}%")
+         # --- ADDITIONAL FINANCIAL VISUALIZATIONS ---
+
+    # 1. Revenue, Cost & Profit Trend (Monthly)
+    if 'Order_Date' in cost_df.columns:
+        cost_df['Month'] = cost_df['Order_Date'].dt.to_period('M').astype(str)
+        monthly_data = cost_df.groupby('Month').agg({
+            'Net_Revenue': 'sum',
+            'Total_Cost': 'sum'
+        }).reset_index()
+        monthly_data['Profit'] = monthly_data['Net_Revenue'] - monthly_data['Total_Cost']
+
+        fig = px.line(
+            monthly_data, 
+            x='Month', 
+            y=['Net_Revenue', 'Total_Cost', 'Profit'],
+            labels={'value': '€', 'variable': 'Metric'},
+            title='Monthly Revenue, Cost & Profit Trend'
+        )
+        fig.update_traces(mode='lines+markers')
+        st.plotly_chart(fig, use_container_width=True)
+
+    # 2. Top 10 Customers by Profit
+    if 'Account_Name' in cost_df.columns:
+        customer_profit = cost_df.groupby('Account_Name').agg({
+            'Net_Revenue': 'sum',
+            'Total_Cost': 'sum'
+        }).reset_index()
+        customer_profit['Profit'] = customer_profit['Net_Revenue'] - customer_profit['Total_Cost']
+        top_customers = customer_profit.sort_values('Profit', ascending=False).head(10)
+
+        fig = px.bar(
+            top_customers, 
+            x='Account_Name', 
+            y='Profit',
+            color='Profit',
+            color_continuous_scale='Blues',
+            title='Top 10 Customers by Profit'
+        )
+        fig.update_layout(xaxis_tickangle=-45)
+        st.plotly_chart(fig, use_container_width=True)
+
+    # 3. Profit Waterfall Chart
+    profit_breakdown = {
+        'Revenue': total_revenue,
+        'Pickup Cost': -cost_df['PU_Cost'].sum() if 'PU_Cost' in cost_df.columns else 0,
+        'Shipping Cost': -cost_df['Ship_Cost'].sum() if 'Ship_Cost' in cost_df.columns else 0,
+        'Manual Cost': -cost_df['Man_Cost'].sum() if 'Man_Cost' in cost_df.columns else 0,
+        'Delivery Cost': -cost_df['Del_Cost'].sum() if 'Del_Cost' in cost_df.columns else 0,
+        'Profit': total_revenue - total_cost
+    }
+
+    waterfall_data = pd.DataFrame(list(profit_breakdown.items()), columns=['Category', 'Value'])
+    fig = go.Figure(go.Waterfall(
+        name="Profit Breakdown",
+        orientation="v",
+        measure=["relative", "relative", "relative", "relative", "relative", "total"],
+        x=waterfall_data['Category'],
+        y=waterfall_data['Value'],
+        connector={"line": {"color": "rgb(63, 63, 63)"}},
+    ))
+    fig.update_layout(title="Profit Breakdown (Waterfall Chart)")
+    st.plotly_chart(fig, use_container_width=True)
+
+    # 4. Margin % Distribution by Country (Box Plot)
+    if 'PU_Country' in cost_df.columns and 'Gross_Percent' in cost_df.columns:
+        margin_by_country = cost_df[['PU_Country', 'Gross_Percent']].dropna()
+        margin_by_country['Gross_Percent'] *= 100
+
+        fig = px.box(
+            margin_by_country,
+            x='PU_Country',
+            y='Gross_Percent',
+            title='Margin % Distribution by Country'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+   
+   # Add spacing
+   st.markdown("<br>", unsafe_allow_html=True)
    
    # Country Financial Performance - FIXED to only show countries with financial data
    if 'PU_Country' in cost_df.columns:
