@@ -581,7 +581,6 @@ if tms_data is not None:
   st.markdown('</div>', unsafe_allow_html=True)
  
 # TAB 4: Financial Analysis
-# TAB 4: Financial Analysis
 with tab4:
     st.markdown('<h2 class="section-header">Financial Performance & Profitability</h2>', unsafe_allow_html=True)
 
@@ -744,68 +743,49 @@ with tab4:
 
 
    
-   # Country Financial Performance - FIXED to only show countries with financial data
-   if 'PU_Country' in cost_df.columns:
-    st.markdown('<p class="chart-title">Country-by-Country Financial Performance</p>', unsafe_allow_html=True)
-    
-    # Only aggregate countries that have financial data
-    country_financials = cost_df.groupby('PU_Country').agg({
-     'Net_Revenue': 'sum',
-     'Total_Cost': 'sum',
-     'Gross_Percent': 'mean'
-    }).round(2)
-    
-    country_financials['Profit'] = country_financials['Net_Revenue'] - country_financials['Total_Cost']
-    country_financials['Margin_Percent'] = (country_financials['Gross_Percent'] * 100).round(1)
-    
-    # Sort by revenue
-    country_financials = country_financials.sort_values('Net_Revenue', ascending=False)
-    
-    # Create subplots with better spacing
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-     st.markdown("**Revenue by Country**")
-     st.markdown("<small>Which markets generate most income?</small>", unsafe_allow_html=True)
-     
-     revenue_data = country_financials.reset_index()
-     revenue_data = revenue_data[revenue_data['Net_Revenue'] > 0]
-     
-     fig = px.bar(revenue_data, x='PU_Country', y='Net_Revenue',
-                title='',
-                color='Net_Revenue',
-                color_continuous_scale=[[0, '#006d2c'], [0.5, '#31a354'], [1, '#74c476']])
-     fig.update_layout(showlegend=False, height=400)
-     st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-     st.markdown("**Profit/Loss by Country**")
-     st.markdown("<small>Which routes are actually profitable?</small>", unsafe_allow_html=True)
-     
-     profit_data = country_financials[['Profit']].reset_index()
-     profit_data['Color'] = profit_data['Profit'].apply(lambda x: 'Profit' if x >= 0 else 'Loss')
-     
-     fig = px.bar(profit_data, x='PU_Country', y='Profit',
-                title='',
-                color='Color',
-                color_discrete_map={'Profit': '#2ca02c', 'Loss': '#d62728'})
-     fig.update_layout(showlegend=False, height=400)
-     st.plotly_chart(fig, use_container_width=True)
-    
-    # Detailed financial table with insights - only show countries with data
-    st.markdown("**Detailed Country Performance**")
-    
-    display_financials = country_financials.copy()
-    display_financials['Revenue'] = display_financials['Net_Revenue'].round(0).astype(int)
-    display_financials['Cost'] = display_financials['Total_Cost'].round(0).astype(int)
-    display_financials['Profit'] = display_financials['Profit'].round(0).astype(int)
-    display_financials['Status'] = display_financials['Profit'].apply(
-     lambda x: '🟢 Profitable' if x > 0 else '🔴 Loss-making'
-    )
-    display_financials = display_financials[['Revenue', 'Cost', 'Profit', 'Margin_Percent', 'Status']]
-    display_financials.columns = ['Revenue (€)', 'Cost (€)', 'Profit (€)', 'Margin (%)', 'Status']
-    
-    st.dataframe(display_financials, use_container_width=True)
+         # Country Financial Performance - FIXED to only show countries with financial data
+        if 'PU_Country' in cost_df.columns:
+            st.markdown('<p class="chart-title">Country-by-Country Financial Performance</p>', unsafe_allow_html=True)
+
+            country_financials = cost_df.groupby('PU_Country').agg({
+                'Net_Revenue': 'sum',
+                'Total_Cost': 'sum',
+                'Gross_Percent': 'mean'
+            }).round(2)
+            country_financials['Profit'] = country_financials['Net_Revenue'] - country_financials['Total_Cost']
+            country_financials['Margin_Percent'] = (country_financials['Gross_Percent'] * 100).round(1)
+            country_financials = country_financials.sort_values('Net_Revenue', ascending=False)
+
+            col1, col2 = st.columns([1, 1])
+
+            with col1:
+                st.markdown("**Revenue by Country**")
+                revenue_data = country_financials.reset_index()
+                revenue_data = revenue_data[revenue_data['Net_Revenue'] > 0]
+                fig = px.bar(revenue_data, x='PU_Country', y='Net_Revenue',
+                            color='Net_Revenue', color_continuous_scale=[[0, '#006d2c'], [0.5, '#31a354'], [1, '#74c476']])
+                fig.update_layout(showlegend=False, height=400)
+                st.plotly_chart(fig, use_container_width=True)
+
+            with col2:
+                st.markdown("**Profit/Loss by Country**")
+                profit_data = country_financials[['Profit']].reset_index()
+                profit_data['Color'] = profit_data['Profit'].apply(lambda x: 'Profit' if x >= 0 else 'Loss')
+                fig = px.bar(profit_data, x='PU_Country', y='Profit',
+                            color='Color', color_discrete_map={'Profit': '#2ca02c', 'Loss': '#d62728'})
+                fig.update_layout(showlegend=False, height=400)
+                st.plotly_chart(fig, use_container_width=True)
+
+            st.markdown("**Detailed Country Performance**")
+            display_financials = country_financials.copy()
+            display_financials['Revenue'] = display_financials['Net_Revenue'].round(0).astype(int)
+            display_financials['Cost'] = display_financials['Total_Cost'].round(0).astype(int)
+            display_financials['Profit'] = display_financials['Profit'].round(0).astype(int)
+            display_financials['Status'] = display_financials['Profit'].apply(lambda x: '🟢 Profitable' if x > 0 else '🔴 Loss-making')
+            display_financials = display_financials[['Revenue', 'Cost', 'Profit', 'Margin_Percent', 'Status']]
+            display_financials.columns = ['Revenue (€)', 'Cost (€)', 'Profit (€)', 'Margin (%)', 'Status']
+            st.dataframe(display_financials, use_container_width=True)
+
   
   # Financial Insights with business meaning
   st.markdown('<div class="insight-box">', unsafe_allow_html=True)
