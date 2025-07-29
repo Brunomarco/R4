@@ -583,7 +583,6 @@ if tms_data is not None:
 # TAB 4: Financial Analysis
 with tab4:
  st.markdown('<h2 class="section-header">Financial Performance & Profitability</h2>', unsafe_allow_html=True)
- 
  if 'cost_sales' in tms_data and not tms_data['cost_sales'].empty:
   cost_df = tms_data['cost_sales']
  
