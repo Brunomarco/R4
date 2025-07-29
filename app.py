@@ -581,6 +581,7 @@ if tms_data is not None:
   st.markdown('</div>', unsafe_allow_html=True)
  
 # TAB 4: Financial Analysis
+# TAB 4: Financial Analysis
 with tab4:
     st.markdown('<h2 class="section-header">Financial Performance & Profitability</h2>', unsafe_allow_html=True)
 
@@ -652,7 +653,6 @@ with tab4:
         # === ROW 2: CUSTOMERS & PROFIT VS MARGIN ===
         col1, col2 = st.columns(2)
 
-        # Top 10 Customers by Profit
         with col1:
             if 'Account_Name' in cost_df.columns:
                 st.markdown("**Top 10 Customers by Profit**")
@@ -669,7 +669,6 @@ with tab4:
                 fig.update_layout(xaxis_tickangle=-45)
                 st.plotly_chart(fig, use_container_width=True)
 
-        # Profit vs Margin Scatterplot with Quadrants
         with col2:
             st.markdown("**Profit vs Margin % (Quadrant View)**")
             if 'Gross_Percent' in cost_df.columns and 'Diff' in cost_df.columns:
@@ -698,7 +697,6 @@ with tab4:
         # === ROW 3: ADVANCED VISUALS ===
         col1, col2 = st.columns(2)
 
-        # Profit Distribution Histogram
         with col1:
             if 'Diff' in cost_df.columns:
                 st.markdown("**Profit Distribution per Shipment**")
@@ -712,7 +710,6 @@ with tab4:
                 fig.update_traces(marker_color='#3182bd')
                 st.plotly_chart(fig, use_container_width=True)
 
-        # Margin vs Profit Bubble
         with col2:
             if {'Gross_Percent', 'Diff', 'Net_Revenue'}.issubset(cost_df.columns):
                 st.markdown("**Margin vs Profit (Bubble Size = Revenue)**")
@@ -744,6 +741,7 @@ with tab4:
             )
             fig.update_layout(xaxis_tickangle=-45, height=400)
             st.plotly_chart(fig, use_container_width=True)
+
 
    
    # Country Financial Performance - FIXED to only show countries with financial data
