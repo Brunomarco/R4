@@ -787,38 +787,38 @@ with tab4:
             st.dataframe(display_financials, use_container_width=True)
 
   
-  # Financial Insights with business meaning
-  st.markdown('<div class="insight-box">', unsafe_allow_html=True)
-  st.markdown("### 💰 Understanding the Financial Picture")
-  st.markdown(f"""
-  **Overall Financial Health:**
-  - **Revenue of €{total_revenue:,.0f}** from {total_services} shipments = €{total_revenue/total_services:.2f} per shipment
-  - **Costs of €{total_cost:,.0f}** = €{total_cost/total_services:.2f} per shipment
-  - **Profit margin {profit_margin:.1f}%** means: for every €100 earned, we keep €{profit_margin:.2f}
-  - {'Strong position' if profit_margin >= 20 else f'Need to improve by {20-profit_margin:.1f}% to reach healthy 20% target'}
-  
-  **Cost Structure Analysis:**
-  - **Pickup (PU)**: First-mile collection from customers
-  - **Shipping**: Main transportation between hubs
-  - **Manual (Man)**: Handling, sorting, documentation
-  - **Delivery (Del)**: Last-mile to final destination
-  
-  The largest cost component indicates where to focus efficiency improvements.
-  
-  **Country Profitability Insights:**
-  - **Green countries**: Profitable routes worth expanding
-  - **Red countries**: Review pricing or consider discontinuation
-  - **High-revenue doesn't always mean high-profit**: Check margins
-  - **Small volume countries**: May have high costs due to lack of scale
-  
-  **What This Means for Business:**
-  1. **Pricing**: Countries with negative margins need rate increases
-  2. **Volume**: Increase shipments in high-margin countries
-  3. **Costs**: Focus on reducing largest cost components
-  4. **Portfolio**: Consider dropping consistently unprofitable routes
-  5. **Investment**: Use profits from strong markets to develop weak ones
-  """)
-  st.markdown('</div>', unsafe_allow_html=True)
+       # Financial Insights with business meaning
+       st.markdown('<div class="insight-box">', unsafe_allow_html=True)
+       st.markdown("### 💰 Understanding the Financial Picture")
+       st.markdown(f"""
+       **Overall Financial Health:**
+       - **Revenue of €{total_revenue:,.0f}** from {total_services} shipments = €{total_revenue/total_services:.2f} per shipment
+       - **Costs of €{total_cost:,.0f}** = €{total_cost/total_services:.2f} per shipment
+       - **Profit margin {profit_margin:.1f}%** means: for every €100 earned, we keep €{profit_margin:.2f}
+       - {'Strong position' if profit_margin >= 20 else f'Need to improve by {20-profit_margin:.1f}% to reach healthy 20% target'}
+       
+       **Cost Structure Analysis:**
+       - **Pickup (PU)**: First-mile collection from customers
+       - **Shipping**: Main transportation between hubs
+       - **Manual (Man)**: Handling, sorting, documentation
+       - **Delivery (Del)**: Last-mile to final destination
+       
+       The largest cost component indicates where to focus efficiency improvements.
+       
+       **Country Profitability Insights:**
+       - **Green countries**: Profitable routes worth expanding
+       - **Red countries**: Review pricing or consider discontinuation
+       - **High-revenue doesn't always mean high-profit**: Check margins
+       - **Small volume countries**: May have high costs due to lack of scale
+       
+       **What This Means for Business:**
+       1. **Pricing**: Countries with negative margins need rate increases
+       2. **Volume**: Increase shipments in high-margin countries
+       3. **Costs**: Focus on reducing largest cost components
+       4. **Portfolio**: Consider dropping consistently unprofitable routes
+       5. **Investment**: Use profits from strong markets to develop weak ones
+       """)
+       st.markdown('</div>', unsafe_allow_html=True)
  
  # TAB 5: Lane Network
  with tab5:
