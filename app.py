@@ -166,32 +166,71 @@ def load_tms_data(uploaded_file):
    # 5. Cost Sales - FIXED to properly process only BILLED orders (excluding row 128)
    if "cost sales" in excel_sheets:
     cost_df = excel_sheets["cost sales"].copy()
-    expected_cols = ['Order_Date', 'Account', 'Account_Name', 'Office', 'Order_Num', 
-                    'PU_Cost', 'Ship_Cost', 'Man_Cost', 'Del_Cost', 'Total_Cost',
-                    'Net_Revenue', 'Currency', 'Diff', 'Gross_Percent', 'Invoice_Num',
-                    'Total_Amount', 'Status', 'PU_Country']
     
-    new_cols = expected_cols[:len(cost_df.columns)]
-    cost_df.columns = new_cols
+    # First, let's check the structure of the data
+    print(f"Cost sales shape: {cost_df.shape}")
+    print(f"First few columns: {cost_df.columns[:5].tolist()}")
     
+    # Map columns based on position (Excel columns K, M, N for Net_Revenue, Diff, Gross_Percent)
+    if len(cost_df.columns) >= 18:  # Ensure we have enough columns
+     # Assuming standard Excel layout where:
+     # Column K (index 10) = Net_Revenue
+     # Column M (index 12) = Diff
+     # Column N (index 13) = Gross_Percent
+     # Column Q (index 16) = Status
+     
+     # Rename columns by position
+     cost_df.columns = ['Col' + str(i) for i in range(len(cost_df.columns))]
+     
+     # Map specific columns we need
+     column_mapping = {
+      'Col0': 'Order_Date',
+      'Col1': 'Account', 
+      'Col2': 'Account_Name',
+      'Col3': 'Office',
+      'Col4': 'Order_Num',
+      'Col5': 'PU_Cost',
+      'Col6': 'Ship_Cost', 
+      'Col7': 'Man_Cost',
+      'Col8': 'Del_Cost',
+      'Col9': 'Total_Cost',
+      'Col10': 'Net_Revenue',  # Column K
+      'Col11': 'Currency',
+      'Col12': 'Diff',          # Column M
+      'Col13': 'Gross_Percent', # Column N
+      'Col14': 'Invoice_Num',
+      'Col15': 'Total_Amount',
+      'Col16': 'Status',        # Column Q
+      'Col17': 'PU_Country'
+     }
+     
+     # Rename only columns that exist
+     for old_name, new_name in column_mapping.items():
+      if old_name in cost_df.columns:
+       cost_df.rename(columns={old_name: new_name}, inplace=True)
+    
+    # Convert date column
     if 'Order_Date' in cost_df.columns:
      cost_df['Order_Date'] = safe_date_conversion(cost_df['Order_Date'])
     
-    # IMPORTANT: Excel rows 3-127 correspond to DataFrame indices 2-126
-    # Row 128 (index 127) contains SUBTOTAL formulas and must be excluded
-    if len(cost_df) > 126:
-     cost_df = cost_df.iloc[:125]  # Use only data rows, excluding subtotal row
+    # Remove the last row if it contains SUBTOTAL (row 128 in Excel = index 125 in DataFrame)
+    # Excel data starts from row 3, so row 128 = index 125
+    if len(cost_df) >= 125:
+     # Check if the last rows contain formula results (they might have different characteristics)
+     cost_df = cost_df.iloc[:125]  # Exclude row 128 (SUBTOTAL row)
     
-    # Store original data for reference
+    # Store all data first
     data['cost_sales_all'] = cost_df.copy()
     
     # Filter for BILLED status only for financial calculations
     if 'Status' in cost_df.columns:
      billed_df = cost_df[cost_df['Status'] == 'BILLED'].copy()
+     print(f"Number of BILLED orders: {len(billed_df)}")
     else:
      billed_df = cost_df.copy()
+     print("No Status column found, using all data")
     
-    # Don't remove any rows - keep all BILLED orders even with 0 values
+    # Store the filtered BILLED data
     data['cost_sales'] = billed_df
    
    return data
@@ -238,25 +277,46 @@ if tms_data is not None:
  if 'cost_sales' in tms_data and not tms_data['cost_sales'].empty:
   cost_df = tms_data['cost_sales']
   
+  # Debug: Check what columns we have
+  print(f"Available columns in cost_df: {cost_df.columns.tolist()}")
+  print(f"Number of rows in cost_df: {len(cost_df)}")
+  
   # Calculate the actual totals from BILLED orders only
   if 'Net_Revenue' in cost_df.columns:
+   # Convert to numeric, handling any non-numeric values
+   cost_df['Net_Revenue'] = pd.to_numeric(cost_df['Net_Revenue'], errors='coerce').fillna(0)
    total_revenue = cost_df['Net_Revenue'].sum()
+   print(f"Total Revenue calculated: {total_revenue}")
+  else:
+   print("Net_Revenue column not found!")
   
   if 'Total_Cost' in cost_df.columns:
-   # Total cost is the sum of all cost components
+   cost_df['Total_Cost'] = pd.to_numeric(cost_df['Total_Cost'], errors='coerce').fillna(0)
+   total_cost = cost_df['Total_Cost'].sum()
+  else:
+   # Calculate total cost from individual components
    cost_cols = ['PU_Cost', 'Ship_Cost', 'Man_Cost', 'Del_Cost']
    total_cost = 0
    for col in cost_cols:
     if col in cost_df.columns:
+     cost_df[col] = pd.to_numeric(cost_df[col], errors='coerce').fillna(0)
      total_cost += cost_df[col].sum()
+   print(f"Total Cost calculated from components: {total_cost}")
   
   if 'Diff' in cost_df.columns:
+   cost_df['Diff'] = pd.to_numeric(cost_df['Diff'], errors='coerce').fillna(0)
    total_diff = cost_df['Diff'].sum()
    # Calculate profit margin as diff/revenue (matching Excel SUBTOTAL formula)
    profit_margin = (total_diff / total_revenue * 100) if total_revenue > 0 else 0
+   print(f"Total Diff: {total_diff}, Profit Margin: {profit_margin}")
   else:
    total_diff = total_revenue - total_cost
    profit_margin = (total_diff / total_revenue * 100) if total_revenue > 0 else 0
+   print("Diff column not found, calculating from revenue - cost")
+  
+  # Ensure Gross_Percent is numeric if it exists
+  if 'Gross_Percent' in cost_df.columns:
+   cost_df['Gross_Percent'] = pd.to_numeric(cost_df['Gross_Percent'], errors='coerce').fillna(0)
 
 # Create tabs for each sheet
 if tms_data is not None:
@@ -602,6 +662,16 @@ if tms_data is not None:
   
   if 'cost_sales' in tms_data and not tms_data['cost_sales'].empty:
    cost_df = tms_data['cost_sales']
+   
+   # Debug section - can be removed once working
+   with st.expander("Debug Information"):
+    st.write(f"Total rows in cost_sales: {len(cost_df)}")
+    st.write(f"Columns available: {cost_df.columns.tolist()}")
+    if 'Status' in cost_df.columns:
+     st.write(f"Status values: {cost_df['Status'].value_counts().to_dict()}")
+    if 'Net_Revenue' in cost_df.columns:
+     st.write(f"Sample Net_Revenue values: {cost_df['Net_Revenue'].head()}")
+     st.write(f"Net_Revenue sum: {cost_df['Net_Revenue'].sum()}")
    
    # Financial Overview with spacing
    st.markdown('<p class="chart-title">Overall Financial Health</p>', unsafe_allow_html=True)
